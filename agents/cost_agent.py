@@ -1,7 +1,6 @@
 """Cost agent implemented using LangGraph."""
 from __future__ import annotations
 
-import re
 from typing import TypedDict
 
 from langgraph.graph import StateGraph, END
@@ -17,9 +16,30 @@ class CostState(TypedDict, total=False):
 
 
 def extract_part_number(text: str) -> str:
-    """Extract a simple part number from the text."""
-    match = re.search(r"\b\d+\b", text)
-    return match.group(0) if match else "unknown"
+    """Extract a simple part number from the text using an LLM.
+
+    This function calls OpenAI's API to identify a part number within the
+    provided text.  If the API is unavailable or fails for any reason, the
+    function returns ``"unknown"``.
+    """
+    try:
+        from openai import OpenAI
+
+        client = OpenAI()
+        prompt = (
+            "Extract the part number from the following text. Respond with only "
+            "the part number. If no part number is present, respond with 'unknown'.\n\n"
+            f"{text}"
+        )
+        response = client.responses.create(
+            model="gpt-4o-mini",
+            input=prompt,
+            max_output_tokens=10,
+        )
+        content = response.output[0].content[0].text.strip()
+        return content if content else "unknown"
+    except Exception:
+        return "unknown"
 
 
 class CostAgent:
